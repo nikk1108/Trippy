@@ -1,0 +1,41 @@
+# Node modules for both frontend and backend
+frontend/node_modules/
+backend/node_modules/
+node_modules/
+
+# Build outputs
+frontend/build/
+frontend/dist/
+backend/dist/
+backend/build/
+
+# Environment files
+frontend/.env
+backend/.env
+.env.docker
+.env.local
+.env.*.local
+
+# Logs
+*.log
+backend/logs/
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Cache / temporary files
+.cache/
+
+# Lighthouse raw JSON (regenerate; summary lives in PERFORMANCE.md)
+docs/lighthouse-report.json
+
+# Uploaded documents (local storage)
+backend/uploads/
+
+# OpenAPI generated YAML is committed; ignore generator scratch if any
+backend/docs/openapi/.cache/
+
+# Markdown files
+*.md

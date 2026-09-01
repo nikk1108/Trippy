@@ -1,0 +1,158 @@
+import { useState, useEffect, useRef, useCallback } from "react"
+import { useNavigate, useLocation } from "react-router-dom"
+import { Search } from "lucide-react"
+import { itineraryAPI } from "../services/api"
+import { useDebouncedValue } from "../hooks/useDebouncedValue"
+import { useAskAi } from "../context/AskAiContext"
+import { useAuth } from "../context/AuthContext"
+
+const GUARD_MESSAGE = "Please login to access this feature"
+
+const guardLogin = (pathname, search = "") => ({
+  pathname: "/login",
+  state: {
+    from: { pathname, search },
+    message: GUARD_MESSAGE,
+  },
+})
+
+function SearchBarActive() {
+  const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
+  const { openAskAi } = useAskAi()
+  const [query, setQuery] = useState("")
+  const [suggestions, setSuggestions] = useState([])
+  const [open, setOpen] = useState(false)
+  const [loadingSug, setLoadingSug] = useState(false)
+  const wrapRef = useRef(null)
+
+  const debouncedQuery = useDebouncedValue(query, 300)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setSuggestions([])
+      setLoadingSug(false)
+      return
+    }
+    const q = debouncedQuery.trim()
+    if (q.length < 2) {
+      setSuggestions([])
+      setLoadingSug(false)
+      return
+    }
+    let cancelled = false
+    setLoadingSug(true)
+    itineraryAPI
+      .getSuggestions(q)
+      .then((res) => {
+        if (!cancelled) setSuggestions(res.data?.data ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestions([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSug(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedQuery, isAuthenticated])
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener("mousedown", onDoc)
+    return () => document.removeEventListener("mousedown", onDoc)
+  }, [])
+
+  const runSearch = useCallback(
+    (raw) => {
+      const term = (raw ?? query).trim()
+      setOpen(false)
+      if (!term) return
+      const search = `?search=${encodeURIComponent(term)}`
+      if (!isAuthenticated) {
+        navigate(guardLogin("/itineraries", search))
+        return
+      }
+      navigate(`/itineraries${search}`)
+    },
+    [isAuthenticated, navigate, query],
+  )
+
+  const onSubmit = (e) => {
+    e.preventDefault()
+    runSearch()
+  }
+
+  const onKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      runSearch()
+    }
+  }
+
+  return (
+    <div ref={wrapRef} className="relative max-w-2xl mx-auto px-4 py-2">
+      <form onSubmit={onSubmit} className="form-search-shell">
+        <div className="flex flex-1 items-center pl-3 min-w-0">
+          <Search className="h-4 w-4 text-[#596273] shrink-0" />
+          <input
+            type="search"
+            autoComplete="off"
+            placeholder="Places to go, things to do, hotels…"
+            className="form-search-input text-base sm:text-sm"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setOpen(true)
+            }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={onKeyDown}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => openAskAi(query)}
+          className="form-search-ask-ai px-3 sm:px-4 text-xs sm:text-sm"
+        >
+          Ask AI
+        </button>
+        <button type="submit" className="form-search-submit px-5">
+          Search
+        </button>
+      </form>
+      {open && query.trim().length >= 2 && (suggestions.length > 0 || loadingSug) && (
+        <ul className="absolute left-4 right-4 top-full z-50 mt-1 max-h-56 overflow-auto rounded-lg border border-border bg-card py-1 text-sm shadow-lg">
+          {loadingSug && suggestions.length === 0 ? (
+            <li className="px-3 py-2 text-[#596273]">Searching…</li>
+          ) : (
+            suggestions.map((text) => (
+              <li key={text}>
+                <button
+                  type="button"
+                  className="w-full px-3 py-2.5 text-left text-[#596273] hover:bg-[#F0EEE8] transition-colors"
+                  onClick={() => {
+                    setQuery(text)
+                    runSearch(text)
+                  }}
+                >
+                  {text}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+export default function SearchBar() {
+  const location = useLocation()
+  if (location.pathname === "/" || location.pathname === "/itineraries") {
+    return null
+  }
+  return <SearchBarActive />
+}
