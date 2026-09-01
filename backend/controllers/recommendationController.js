@@ -127,12 +127,23 @@ export const getDestinations = async (req, res, next) => {
         
         const finalDests = dests.slice(0, 18)
         
+        const { getFallbackCoverImage } = await import("../services/tripImageService.js")
+
         const results = []
         for (const dest of finalDests) {
           const itineraryCount = await Itinerary.countDocuments({
             destination: { $regex: dest.name.split(",")[0].trim(), $options: "i" }
           })
           
+          let coverImage = dest.image?.url ? dest.image : null
+          if (!coverImage) {
+            coverImage = await getFallbackCoverImage({
+              destination: dest.name,
+              title: dest.name,
+              tags: dest.tags || [],
+            })
+          }
+
           results.push({
             destination: dest.name,
             itineraryCount: itineraryCount || 1,
@@ -142,7 +153,7 @@ export const getDestinations = async (req, res, next) => {
             },
             tags: dest.tags || [],
             highlights: dest.activities || [],
-            coverImage: dest.image?.url ? dest.image : null,
+            coverImage,
             title: dest.name,
             description: dest.description,
             rating: dest.rating,

@@ -2,6 +2,7 @@ import User from "../models/User.js"
 import Itinerary from "../models/Itinerary.js"
 import Destination from "../models/Destination.js"
 import { resolveDestination, getNormalizedKey } from "./destinationService.js"
+import { getFallbackCoverImage } from "./tripImageService.js"
 import { STATIC_DESTINATIONS } from "../utils/staticDestinations.js"
 
 const CONTENT_WEIGHT = 0.65
@@ -459,7 +460,9 @@ export async function searchDiscoveryUniverse({
           highlights: (dest.activities || []).slice(0, 3),
           budget: { min: minBudget, max: maxBudget, currency: "USD" },
           bestTimeToVisit: dest.bestTimeToVisit || "November – February",
-          coverImage: dest.image?.url ? dest.image : null,
+          coverImage: dest.image?.url
+            ? dest.image
+            : await getFallbackCoverImage({ destination: dest.name, title: dest.name, tags: [st, ...(dest.tags || [])] }),
           popularity: dest.popularity || 60,
           rating: dest.rating || 4.2,
           createdAt: new Date("2026-01-01T00:00:00Z"), // Constant deterministic date
